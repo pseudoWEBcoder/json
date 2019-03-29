@@ -1,13 +1,14 @@
 <?php
 
 use RedBeanPHP\R;
-
 error_reporting(E_ERROR);
 require 'vendor/autoload.php';
 R::setup('sqlite:' . realpath($df = dirname(__FILE__) . '/db/db.db'));
 $goods = R::dispense('goods');
+//$allgoods=R::findAll();
+dump($allgoods);
 $dir = '/sdcard/Download/';
-$dir = 'C:\Users\nik-msk-win10\Desktop\json';
+//$dir = 'C:\Users\nik-msk-win10\Desktop\json';
 $dirname = realpath($dir);
 if (isset($_REQUEST['file'])) {
     $file = $_REQUEST['file'];
