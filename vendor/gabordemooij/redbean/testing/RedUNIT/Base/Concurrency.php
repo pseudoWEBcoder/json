@@ -6,6 +6,7 @@ use RedUNIT\Base as Base;
 use RedBeanPHP\Facade as R;
 use RedBeanPHP\RedException as RedException;
 use RedBeanPHP\OODBBean as OODBBean;
+use RedBeanPHP\QueryWriter\AQueryWriter;
 
 /**
  * Concurrency
@@ -41,7 +42,9 @@ class Concurrency extends Base
 	 */
 	public function prepare()
 	{
-		R::close();
+		try{
+			R::close();
+		} catch( \Exception $e ) {}
 	}
 
 	/**
@@ -138,7 +141,8 @@ class Concurrency extends Base
 			try { R::exec('SET autocommit = 0'); }catch( \Exception $e ){}
 			R::freeze( TRUE );
 			R::begin();
-			$i = R::loadForUpdate('inventory', 1);
+			$i = R::findForUpdate('inventory', ' id = ? ', array(1));
+			$i = reset( $i );
 			print_r($i);
 			$i->apples += 5;
 			R::store($i);
@@ -171,6 +175,38 @@ class Concurrency extends Base
             ->getDatabase()
             ->getLogger();
 		$beans = R::batch( 'bean', $ids );
+		asrt( count( $beans ), 10 );
+		$entries = $logs->grep('for update');
+		asrt( count( $entries ), 0 );
+		$logs->clear();
+
+		/* findOneForUpdate */
+		R::nuke();
+		$beans = R::dispenseAll('bean*10');
+		R::storeAll($beans[0]);
+		$ids = array();
+		foreach($beans[0] as $bean) $ids[] = $bean->id;
+		R::debug( TRUE, 1 );
+		$logs = R::getDatabaseAdapter()
+            ->getDatabase()
+            ->getLogger();
+		$beans = R::findOneForUpdate( 'bean' );
+		asrt( count( $beans ), 1 );
+		$entries = $logs->grep('for update');
+		asrt( count( $entries ), 0 );
+		$logs->clear();
+
+		/* findForUpdate */
+		R::nuke();
+		$beans = R::dispenseAll('bean*10');
+		R::storeAll($beans[0]);
+		$ids = array();
+		foreach($beans[0] as $bean) $ids[] = $bean->id;
+		R::debug( TRUE, 1 );
+		$logs = R::getDatabaseAdapter()
+            ->getDatabase()
+            ->getLogger();
+		$beans = R::findForUpdate( 'bean' );
 		asrt( count( $beans ), 10 );
 		$entries = $logs->grep('for update');
 		asrt( count( $entries ), 0 );
@@ -245,5 +281,34 @@ class Concurrency extends Base
 		$logs->clear();
 
 		R::debug( FALSE );
+	}
+
+	/**
+	 * loadForUpdate/findForUpdate should be applied even if caching is on.
+	 * Caching may not interfere with locking beans.
+	 *
+	 * @return void
+	 */
+	public function testLockAndCache()
+	{
+		R::nuke();
+		$bean = R::dispense('lock');
+		$bean->title = 'lock';
+		$id = R::store( $bean );
+		R::getWriter()->setUseCache( TRUE );
+		$lock = R::loadForUpdate( 'lock', $id );
+		R::debug( TRUE, 1 );
+		$lock = R::loadForUpdate( 'lock', $id );
+		$logs = R::getDatabaseAdapter()->getDatabase()->getLogger()->grep( AQueryWriter::C_SELECT_SNIPPET_FOR_UPDATE );
+		asrt( count($logs), 1 ); //if no cache clear, then would have been 2
+		R::debug( FALSE );
+		$lock = R::findForUpdate( 'lock', 'id = ?', array( $id ) );
+		R::debug( TRUE, 1 );
+		$lock = R::findForUpdate( 'lock', 'id = ?', array( $id ) );
+		$logs = R::getDatabaseAdapter()->getDatabase()->getLogger()->grep( AQueryWriter::C_SELECT_SNIPPET_FOR_UPDATE );
+		asrt( count($logs), 1 ); //if no cache clear, then would have been 2
+		R::getWriter()->setUseCache( FALSE );
+		R::debug( FALSE );
+		R::nuke();
 	}
 }

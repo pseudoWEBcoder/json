@@ -32,6 +32,8 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 	const C_DATATYPE_TEXT             = 3;
 	const C_DATATYPE_SPECIAL_DATE     = 80;
 	const C_DATATYPE_SPECIAL_DATETIME = 81;
+	const C_DATATYPE_SPECIAL_TIME     = 82; //TIME (no zone) only manual
+	const C_DATATYPE_SPECIAL_TIMEZ    = 83; //TIME (plus zone) only manual
 	const C_DATATYPE_SPECIAL_POINT    = 90;
 	const C_DATATYPE_SPECIAL_LSEG     = 91;
 	const C_DATATYPE_SPECIAL_CIRCLE   = 92;
@@ -55,6 +57,21 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 	 * @var string
 	 */
 	protected $defaultValue = 'DEFAULT';
+
+	/**
+	 * @var array
+	 */
+	protected $DDLTemplates = array(
+		'addColumn' => array(
+			'*' => 'ALTER TABLE %s ADD %s %s '
+		),
+		'createTable' => array(
+			'*' => 'CREATE TABLE %s (id SERIAL PRIMARY KEY) '
+		),
+		'widenColumn' => array(
+			'*' => 'ALTER TABLE %s ALTER COLUMN %s TYPE %s'
+		)
+	);
 
 	/**
 	 * Returns the insert suffix SQL Snippet
@@ -162,6 +179,8 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 			self::C_DATATYPE_DOUBLE           => ' double precision ',
 			self::C_DATATYPE_TEXT             => ' text ',
 			self::C_DATATYPE_SPECIAL_DATE     => ' date ',
+			self::C_DATATYPE_SPECIAL_TIME     => ' time ',
+			self::C_DATATYPE_SPECIAL_TIMEZ    => ' time with time zone ',
 			self::C_DATATYPE_SPECIAL_DATETIME => ' timestamp without time zone ',
 			self::C_DATATYPE_SPECIAL_POINT    => ' point ',
 			self::C_DATATYPE_SPECIAL_LSEG     => ' lseg ',
@@ -203,11 +222,11 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 	/**
 	 * @see QueryWriter::createTable
 	 */
-	public function createTable( $table )
+	public function createTable( $type )
 	{
-		$table = $this->esc( $table );
+		$table = $this->esc( $type );
 
-		$this->adapter->exec( " CREATE TABLE $table (id SERIAL PRIMARY KEY); " );
+		$this->adapter->exec( sprintf( $this->getDDLTemplate( 'createTable', $type ), $table ) );
 	}
 
 	/**
@@ -309,9 +328,9 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 	/**
 	 * @see QueryWriter::widenColumn
 	 */
-	public function widenColumn( $type, $column, $datatype )
+	public function widenColumn( $beanType, $column, $datatype )
 	{
-		$table   = $type;
+		$table   = $beanType;
 		$type    = $datatype;
 
 		$table   = $this->esc( $table );
@@ -319,7 +338,8 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 
 		$newtype = $this->typeno_sqltype[$type];
 
-		$this->adapter->exec( "ALTER TABLE $table \n\t ALTER COLUMN $column TYPE $newtype " );
+		$this->adapter->exec( sprintf( $this->getDDLTemplate( 'widenColumn', $beanType, $column ), $table, $column, $newtype ) );
+
 	}
 
 	/**
@@ -402,6 +422,7 @@ class PostgreSQL extends AQueryWriter implements QueryWriter
 	 */
 	public function wipeAll()
 	{
+		if (AQueryWriter::$noNuke) throw new \Exception('The nuke() command has been disabled using noNuke() or R::feature(novice/...).');
 		$this->adapter->exec( 'SET CONSTRAINTS ALL DEFERRED' );
 
 		foreach ( $this->getTables() as $t ) {

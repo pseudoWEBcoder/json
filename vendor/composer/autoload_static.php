@@ -11,6 +11,14 @@ class ComposerStaticInit031cfd1f1dc73af92999665da1152d37
         array (
             'RedBeanPHP\\' => 11,
         ),
+        'P' => 
+        array (
+            'Psr\\Log\\' => 8,
+        ),
+        'M' => 
+        array (
+            'Monolog\\' => 8,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -18,6 +26,18 @@ class ComposerStaticInit031cfd1f1dc73af92999665da1152d37
         array (
             0 => __DIR__ . '/..' . '/gabordemooij/redbean/RedBeanPHP',
         ),
+        'Psr\\Log\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/psr/log/Psr/Log',
+        ),
+        'Monolog\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/monolog/monolog/src/Monolog',
+        ),
+    );
+
+    public static $classMap = array (
+        'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
@@ -25,6 +45,7 @@ class ComposerStaticInit031cfd1f1dc73af92999665da1152d37
         return \Closure::bind(function () use ($loader) {
             $loader->prefixLengthsPsr4 = ComposerStaticInit031cfd1f1dc73af92999665da1152d37::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInit031cfd1f1dc73af92999665da1152d37::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit031cfd1f1dc73af92999665da1152d37::$classMap;
 
         }, null, ClassLoader::class);
     }

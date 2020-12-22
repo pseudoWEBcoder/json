@@ -377,6 +377,39 @@ abstract class Repository
 	}
 
 	/**
+	 * Dispenses a new bean (a OODBBean Bean Object)
+	 * of the specified type. Always
+	 * use this function to get an empty bean object. Never
+	 * instantiate a OODBBean yourself because it needs
+	 * to be configured before you can use it with RedBean. This
+	 * function applies the appropriate initialization /
+	 * configuration for you.
+	 *
+	 * To use a different class for beans (instead of OODBBean) set:
+	 * REDBEAN_OODBBEAN_CLASS to the name of the class to be used.
+	 *
+	 * @param string  $type              type of bean you want to dispense
+	 * @param int     $number            number of beans you would like to get
+	 * @param boolean $alwaysReturnArray if TRUE always returns the result as an array
+	 *
+	 * @return OODBBean
+	 */
+	public function dispense( $type, $number = 1, $alwaysReturnArray = FALSE )
+	{
+		$OODBBEAN = defined( 'REDBEAN_OODBBEAN_CLASS' ) ? REDBEAN_OODBBEAN_CLASS : '\RedBeanPHP\OODBBean';
+		$beans = array();
+		for ( $i = 0; $i < $number; $i++ ) {
+			$bean = new $OODBBEAN;
+			$bean->initializeForDispense( $type, $this->oodb->getBeanHelper() );
+			$this->check( $bean );
+			$this->oodb->signal( 'dispense', $bean );
+			$beans[] = $bean;
+		}
+
+		return ( count( $beans ) === 1 && !$alwaysReturnArray ) ? array_pop( $beans ) : $beans;
+	}
+
+	/**
 	 * Searches the database for a bean that matches conditions $conditions and sql $addSQL
 	 * and returns an array containing all the beans that have been found.
 	 *
@@ -548,20 +581,45 @@ abstract class Repository
 	 *
 	 * @return array
 	 */
-	public function convertToBeans( $type, $rows, $mask = NULL )
+	public function convertToBeans( $type, $rows, $mask = '__meta' )
 	{
-		$masklen = 0;
-		if ( $mask !== NULL ) $masklen = mb_strlen( $mask );
+		$masktype = gettype( $mask );
+		switch ( $masktype ) {
+			case 'string':
+				break;
+			case 'array':
+				$maskflip = array();
+				foreach ( $mask as $m ) {
+					if ( !is_string( $m ) ) {
+						$mask = NULL;
+						$masktype = 'NULL';
+						break 2;
+					}
+					$maskflip[$m] = TRUE;
+				}
+				$mask = $maskflip;
+				break;
+			default:
+				$mask = NULL;
+				$masktype = 'NULL';
+		}
 
 		$collection                  = array();
 		$this->stash[$this->nesting] = array();
 		foreach ( $rows as $row ) {
-			$meta = array();
-			if ( !is_null( $mask ) ) {
+			if ( $mask !== NULL ) {
+				$meta = array();
 				foreach( $row as $key => $value ) {
-					if ( strpos( $key, $mask ) === 0 ) {
-						unset( $row[$key] );
-						$meta[$key] = $value;
+					if ( $masktype === 'string' ) {
+						if ( strpos( $key, $mask ) === 0 ) {
+							unset( $row[$key] );
+							$meta[$key] = $value;
+						}
+					} elseif ( $masktype === 'array' ) {
+						if ( isset( $mask[$key] ) ) {
+							unset( $row[$key] );
+							$meta[$key] = $value;
+						}
 					}
 				}
 			}
@@ -598,17 +656,12 @@ abstract class Repository
 		}
 
 		try {
-			return (int) $this->writer->queryRecordCount( $type, array(), $addSQL, $bindings );
+			$count = (int) $this->writer->queryRecordCount( $type, array(), $addSQL, $bindings );
 		} catch ( SQLException $exception ) {
-			if ( !$this->writer->sqlStateIn( $exception->getSQLState(), array(
-				 QueryWriter::C_SQLSTATE_NO_SUCH_TABLE,
-				 QueryWriter::C_SQLSTATE_NO_SUCH_COLUMN ),
-				 $exception->getDriverDetails() ) ) {
-				throw $exception;
-			}
+			$this->handleException( $exception );
+			$count = 0;
 		}
-
-		return 0;
+		return $count;
 	}
 
 	/**
@@ -636,12 +689,13 @@ abstract class Repository
 			}
 		}
 		try {
-			$this->writer->deleteRecord( $bean->getMeta( 'type' ), array( 'id' => array( $bean->id ) ), NULL );
+			$deleted = $this->writer->deleteRecord( $bean->getMeta( 'type' ), array( 'id' => array( $bean->id ) ), NULL );
 		} catch ( SQLException $exception ) {
 			$this->handleException( $exception );
 		}
 		$bean->id = 0;
 		$this->oodb->signal( 'after_delete', $bean );
+		return isset($deleted) ? $deleted : 0;
 	}
 
 	/**

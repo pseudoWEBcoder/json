@@ -56,6 +56,15 @@ class PDOCursor implements Cursor
 	}
 
 	/**
+	 * @see Cursor::reset
+	 */
+	public function reset()
+	{
+		$this->close();
+		$this->res->execute();
+	}
+
+	/**
 	 * @see Cursor::close
 	 */
 	public function close()

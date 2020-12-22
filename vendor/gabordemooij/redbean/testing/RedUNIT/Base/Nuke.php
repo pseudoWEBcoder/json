@@ -24,6 +24,28 @@ use RedBeanPHP\Facade as R;
 class Nuke extends Base
 {
 	/**
+	 * Test wipeAll().
+	 *
+	 * @return void
+	 */
+	public function testWipe()
+	{
+		R::nuke();
+		$bean = R::dispense( 'bean' );
+		asrt( count( R::inspect() ), 0 );
+		R::store( $bean );
+		asrt( count( R::inspect() ), 1 );
+		asrt( R::count( 'bean' ), 1 );
+		R::debug(1);
+		R::wipeAll();
+		asrt( count( R::inspect() ), 1 );
+		asrt( R::count( 'bean' ), 0 );
+		R::wipeAll( TRUE );
+		asrt( count( R::inspect() ), 0 );
+		asrt( R::count( 'bean' ), 0 );
+	}
+
+	/**
 	 * Nuclear test suite.
 	 *
 	 * @return void
@@ -43,5 +65,27 @@ class Nuke extends Base
 		// No effect
 		asrt( count( R::getWriter()->getTables() ), 1 );
 		R::freeze( FALSE );
+	}
+
+	/**
+	 * Test noNuke().
+	 *
+	 * @return void
+	 */
+	public function testNoNuke() {
+		$bean = R::dispense( 'bean' );
+		R::store( $bean );
+		asrt( count( R::getWriter()->getTables() ), 1 );
+		R::noNuke( TRUE );
+		try {
+			R::nuke();
+			fail();
+		} catch( \Exception $e ) {
+			pass();
+		}
+		asrt( count( R::getWriter()->getTables() ), 1 );
+		R::noNuke( FALSE );
+		R::nuke();
+		asrt( count( R::getWriter()->getTables() ), 0 );
 	}
 }

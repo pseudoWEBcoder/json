@@ -57,7 +57,7 @@ class Misc extends Blackhole
 		}
 		asrt( ( $exception instanceof RedException ), TRUE );
 		asrt( $exception->getMessage(), 'Unsupported database (blackhole).' );
-		$rpdo = new TestRPO( new MockPDO );
+		$rpdo = new \TestRPO( new \MockPDO );
 		asrt( @$rpdo->testCap( 'utf8mb4' ), FALSE );
 	}
 
@@ -290,7 +290,7 @@ class Misc extends Blackhole
 	{
 		testpack( 'Test debug mode with custom logger' );
 		$pdoDriver = new RPDO( R::getDatabaseAdapter()->getDatabase()->getPDO() );
-		$customLogger = new CustomLogger;
+		$customLogger = new \CustomLogger;
 		$pdoDriver->setDebugMode( TRUE, $customLogger );
 		$pdoDriver->Execute( 'SELECT 123' );
 		asrt( count( $customLogger->getLogMessage() ), 1 );
@@ -600,39 +600,25 @@ class Misc extends Blackhole
 		asrt( AQueryWriter::camelsSnake('bookItems4Page'), 'book_items4_page' );
 		asrt( AQueryWriter::camelsSnake('book☀Items4Page'), 'book☀_items4_page' );
 	}
-}
 
-/**
- * Custom Logger class.
- * For testing purposes.
- */
-class CustomLogger extends RDefault
-{
-
-	private $log;
-
-	public function getLogMessage()
+	/**
+	 * Test that init SQL is being executed upon setting PDO.
+	 *
+	 * @return void
+	 */
+	public function testRunInitCodeOnSetPDO()
 	{
-		return $this->log;
-	}
-
-	public function log()
-	{
-		$this->log = func_get_args();
-	}
-}
-
-
-class TestRPO extends RPDO {
-	public function testCap( $cap ) {
-		return $this->hasCap( $cap );
+		$pdo = R::getToolBox()->getDatabaseAdapter()->getDatabase()->getPDO();
+		$rpdo = new \RedBeanPHP\Driver\RPDO( $pdo );
+		$rpdo->setEnableLogging(true);
+		$logger = new \RedBeanPHP\Logger\RDefault\Debug;
+		$logger->setMode( \RedBeanPHP\Logger\RDefault::C_LOGGER_ARRAY );
+		$rpdo->setLogger( $logger );
+		$rpdo->setInitQuery('SELECT 123');
+		$rpdo->setPDO( $pdo );
+		$found = $logger->grep('SELECT 123');
+		asrt(count($found), 1);
+		asrt($found[0], 'SELECT 123');
 	}
 }
-class MockPDO extends \PDO {
-	public function __construct() { }
-	public function setAttribute( $att, $val = NULL ) { ; }
-	public function getAttribute( $att ) {
-		if ($att == \PDO::ATTR_SERVER_VERSION) return '5.5.3';
-		return 'x';
-	}
-}
+

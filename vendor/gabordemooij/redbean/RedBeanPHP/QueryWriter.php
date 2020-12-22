@@ -65,19 +65,50 @@ interface QueryWriter
 	const C_GLUE_AND   = 2;
 
 	/**
+	 * CTE Select Snippet
+	 * Constants specifying select snippets for CTE queries
+	 */
+	 const C_CTE_SELECT_NORMAL = FALSE;
+	 const C_CTE_SELECT_COUNT  = TRUE;
+
+	/**
+	 * Parses an sql string to create joins if needed.
+	 *
+	 * For instance with $type = 'book' and $sql = ' @joined.author.name LIKE ? OR @joined.detail.title LIKE ? '
+	 * parseJoin will return the following SQL:
+	 * ' LEFT JOIN `author` ON `author`.id = `book`.author_id
+	 *   LEFT JOIN `detail` ON `detail`.id = `book`.detail_id
+	 *   WHERE author.name LIKE ? OR detail.title LIKE ? '
+	 *
+	 * @note this feature requires Narrow Field Mode to be activated (default).
+	 *
+	 * @note A default implementation is available in AQueryWriter
+	 * unless a database uses very different SQL this should suffice.
+	 *
+	 * @param string         $type the source type for the join
+	 * @param string         $sql  the sql string to be parsed
+	 *
+	 * @return string
+	 */
+	public function parseJoin( $type, $sql );
+
+	/**
 	 * Writes an SQL Snippet for a JOIN, returns the
 	 * SQL snippet string.
 	 *
 	 * @note A default implementation is available in AQueryWriter
 	 * unless a database uses very different SQL this should suffice.
 	 *
-	 * @param string $type       source type
-	 * @param string $targetType target type (type to join)
-	 * @param string $joinType   type of join (possible: 'LEFT', 'RIGHT' or 'INNER').
+	 * @param string  $type         source type
+	 * @param string  $targetType   target type (type to join)
+	 * @param string  $leftRight    type of join (possible: 'LEFT', 'RIGHT' or 'INNER')
+	 * @param string  $joinType     relation between joined tables (possible: 'parent', 'own', 'shared')
+	 * @param boolean $firstOfChain is it the join of a chain (or the only join)
+	 * @param string  $suffix       suffix to add for aliasing tables (for joining same table multiple times)
 	 *
 	 * @return string $joinSQLSnippet
 	 */
-	public function writeJoin( $type, $targetType, $joinType );
+	public function writeJoin( $type, $targetType, $leftRight, $joinType, $firstOfChain, $suffix );
 
 	/**
 	 * Glues an SQL snippet to the beginning of a WHERE clause.
@@ -314,6 +345,41 @@ interface QueryWriter
 	public function queryTagged( $type, $tagList, $all = FALSE, $addSql = '', $bindings = array() );
 
 	/**
+	 * Like queryTagged but only counts.
+	 *
+	 * @param string  $type     the bean type you want to query
+	 * @param array   $tagList  an array of strings, each string containing a tag title
+	 * @param boolean $all      if TRUE only return records that have been associated with ALL the tags in the list
+	 * @param string  $addSql   addition SQL snippet, for pagination
+	 * @param array   $bindings parameter bindings for additional SQL snippet
+	 *
+	 * @return integer
+	 */
+	public function queryCountTagged( $type, $tagList, $all = FALSE, $addSql = '', $bindings = array() );
+
+	/**
+	 * Returns all parent rows or child rows of a specified row.
+	 * Given a type specifier and a primary key id, this method returns either all child rows
+	 * as defined by having <type>_id = id or all parent rows as defined per id = <type>_id
+	 * taking into account an optional SQL snippet along with parameters.
+	 *
+	 * The $select parameter can be used to adjust the select snippet of the query.
+	 * Possible values are: C_CTE_SELECT_NORMAL (just select all columns, default), C_CTE_SELECT_COUNT
+	 * (count rows) used for countParents and countChildren functions - or you can specify a
+	 * string yourself like 'count(distinct brand)'.
+	 *
+	 * @param string  $type     the bean type you want to query rows for
+	 * @param integer $id       id of the reference row
+	 * @param boolean $up       TRUE to query parent rows, FALSE to query child rows
+	 * @param string  $addSql   optional SQL snippet to embed in the query
+	 * @param array   $bindings parameter bindings for additional SQL snippet
+	 * @param mixed   $select   Select Snippet to use when querying (optional)
+	 *
+	 * @return array
+	 */
+	public function queryRecursiveCommonTableExpression( $type, $id, $up = TRUE, $addSql = NULL, $bindings = array(), $select = QueryWriter::C_CTE_SELECT_NORMAL );
+
+	/**
 	 * This method should update (or insert a record), it takes
 	 * a table name, a list of update values ( $field => $value ) and an
 	 * primary key ID (optional). If no primary key ID is provided, an
@@ -490,20 +556,4 @@ interface QueryWriter
 	 */
 	public function getAssocTable( $types );
 
-	/**
-	 * Given a bean type and a property, this method
-	 * tries to infer the fetch type using the foreign key
-	 * definitions in the database.
-	 * For instance: project, student -> person.
-	 * If no fetchType can be inferred, this method will return NULL.
-	 *
-	 * @note QueryWriters do not have to implement this method,
-	 * it's optional. A default version is available in AQueryWriter.
-	 *
-	 * @param $type     the source type to fetch a target type for
-	 * @param $property the property to fetch the type of
-	 *
-	 * @return string|NULL
-	 */
-	public function inferFetchType( $type, $property );
 }

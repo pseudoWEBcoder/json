@@ -1,5 +1,16 @@
 <?php
 
+function redunit_error_handler($errno,$errstr,$errfile,$errline) {
+	$err = "REDUNITERROR: $errno,$errstr,$errfile,$errline";
+	/* ignore certain errors like deprecated notices that have already been checked in main code */
+	if (strpos($err,'PGSQL_ATTR_DISABLE_NATIVE_PREPARED_STATEMENT') !== FALSE) {
+		return FALSE;
+	}
+	echo $err;
+	throw new \Exception($err);
+	return TRUE;
+}
+
 chdir( '..' );
 $xdebugSupported = (function_exists('xdebug_start_code_coverage'));
 
@@ -25,6 +36,9 @@ echo '*** RedUNIT ***'.PHP_EOL;
 echo 'Welcome to RedUNIT Unit testing framework for RedBeanPHP.'.PHP_EOL;
 echo PHP_EOL;
 
+echo sprintf('PHP version: %s', phpversion());
+echo PHP_EOL;
+
 /**
  * Define some globals.
  */
@@ -41,7 +55,7 @@ require_once( 'RedUNIT/Blackhole.php' );
 require_once( 'RedUNIT/Mysql.php' );
 require_once( 'RedUNIT/Postgres.php' );
 require_once( 'RedUNIT/Sqlite.php' );
-
+require_once( 'RedUNIT/CUBRID.php' );
 require_once( 'RedUNIT/Pretest.php' );
 
 $extraTestsFromHook = array();
@@ -51,6 +65,7 @@ $colorMap = array(
 		 'mysql'  => '0;31',
 		 'pgsql'  => '0;32',
 		 'sqlite' => '0;34',
+		 'CUBRID' => '0;35',
 );
 
 @include 'cli/test_hook.php';
@@ -82,9 +97,15 @@ if ( defined( 'HHVM_VERSION' ) ) {
 
 if ( isset( $ini['sqlite'] ) ) {
 	R::addDatabase( 'sqlite', 'sqlite:' . $ini['sqlite']['file'], NULL, NULL, FALSE );
+	R::selectDatabase( 'sqlite' );
 }
 
-R::selectDatabase( 'sqlite' );
+if ( isset( $ini['CUBRID'] ) ) {
+       $dsn = "cubrid:host={$ini['CUBRID']['host']};port=33000;dbname={$ini['CUBRID']['schema']}";
+       R::addDatabase( 'CUBRID', $dsn, $ini['CUBRID']['user'], $ini['CUBRID']['pass'], FALSE );
+       R::selectDatabase( 'CUBRID' );
+       R::exec( 'AUTOCOMMIT IS ON' );
+}
 
 // Function to activate a driver
 function activate_driver( $d )
@@ -126,8 +147,10 @@ $allPacks = array(
 	'Blackhole/Glue',
 	'Blackhole/Plugins',
 	'Blackhole/Debug',
+	'Blackhole/Stub',
 	'Base/Productivity',
 	'Base/Quickexport',
+	'Base/Hybrid',
 	'Base/Concurrency',
 	'Base/Dispense',
 	'Base/Logging',
@@ -176,6 +199,7 @@ $allPacks = array(
 	'Base/Misc',
 	'Base/Via',
 	'Base/PullRequest530',
+	'Base/Issue841',
 	'Mysql/Preexist',
 	'Mysql/Double',
 	'Mysql/Writer',
@@ -193,11 +217,14 @@ $allPacks = array(
 	'Postgres/Uuid',
 	'Postgres/Bigint',
 	'Postgres/Partial',
+	'Postgres/Trees',
 	'Sqlite/Setget',
 	'Sqlite/Foreignkeys',
 	'Sqlite/Parambind',
 	'Sqlite/Writer',
 	'Sqlite/Rebuild',
+	'CUBRID/Writer',
+	'CUBRID/Setget',
 );
 
 $suffix = array(

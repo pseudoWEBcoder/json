@@ -151,23 +151,23 @@ class DBAdapter extends Observable implements Adapter
 
 		$rows  = $this->db->GetAll( $sql, $bindings );
 
+		if ( !$rows ) return array();
+
 		$assoc = array();
-		if ( !$rows ) {
-			return $assoc;
-		}
 
 		foreach ( $rows as $row ) {
 			if ( empty( $row ) ) continue;
 
-			if ( count( $row ) > 2 ) {
-            $key   = array_shift( $row );
-            $value = $row;
-        } elseif ( count( $row ) > 1 ) {
-				$key   = array_shift( $row );
-				$value = array_shift( $row );
-			} else {
-				$key   = array_shift( $row );
-				$value = $key;
+			$key   = array_shift( $row );
+			switch ( count( $row ) ) {
+				case 0:
+					$value = $key;
+					break;
+				case 1:
+					$value = reset( $row );
+					break;
+				default:
+					$value = $row;
 			}
 
 			$assoc[$key] = $value;
@@ -264,6 +264,15 @@ class DBAdapter extends Observable implements Adapter
 	}
 
 	/**
+	 * Sets initialization code for connection.
+	 *
+	 * @param callable $code
+	 */
+	public function setInitCode($code) {
+		$this->db->setInitCode($code);
+	}
+
+	/**
 	 * @see Adapter::setOption
 	 */
 	public function setOption( $optionKey, $optionValue ) {
@@ -272,5 +281,13 @@ class DBAdapter extends Observable implements Adapter
 			return TRUE;
 		}
 		return FALSE;
+	}
+
+	/**
+	 * @see Adapter::getDatabaseServerVersion
+	 */
+	public function getDatabaseServerVersion()
+	{
+		return $this->db->DatabaseServerVersion();
 	}
 }

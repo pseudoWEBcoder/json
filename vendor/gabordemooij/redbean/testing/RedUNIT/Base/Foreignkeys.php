@@ -35,59 +35,6 @@ class Foreignkeys extends Base implements Observer
 	private $queries = array();
 
 	/**
-	 * Test whether aliases are not used if not necessary:
-	 * when using fetchAs() or R::aliases().
-	 *
-	 * @return void
-	 */
-	public function testAutoResolvAvoid()
-	{
-		R::setAutoResolve( TRUE );
-		R::nuke();
-		$book = R::dispense( 'book' );
-		$page = R::dispense( 'page' );
-		$book->cover = $page;
-		R::store( $book );
-		$book = $book->fresh();
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		$book->cover;
-		asrt( $book->getMeta('sys.autoresolved.cover'), 'page' );
-		R::nuke();
-		$book = R::dispense( 'book' );
-		$page = R::dispense( 'page' );
-		$book->cover = $page;
-		R::store( $book );
-		$book = $book->fresh();
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		$book->fetchAs('page')->cover;
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		R::nuke();
-		R::aliases( array( 'cover' => 'page' ) );
-		$book = R::dispense( 'book' );
-		$page = R::dispense( 'page' );
-		$book->cover = $page;
-		R::store( $book );
-		$book = $book->fresh();
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		$cover = $book->cover;
-		asrt( ( $cover instanceof OODBBean ), TRUE );
-		asrt( $cover->getMeta( 'type' ), 'page' );
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		R::aliases( array() );
-		R::nuke();
-		R::setAutoResolve( FALSE );
-		$book = R::dispense( 'book' );
-		$page = R::dispense( 'page' );
-		$book->cover = $page;
-		R::store( $book );
-		$book = $book->fresh();
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		$book->cover;
-		asrt( $book->getMeta('sys.autoresolved.cover'), NULL );
-		R::setAutoResolve( TRUE );
-	}
-
-	/**
 	 * Test whether unique constraints are properly created using
 	 * reflection.
 	 *
@@ -219,11 +166,8 @@ class Foreignkeys extends Base implements Observer
 	public function testDependency()
 	{
 		$can = $this->createBeanInCan( FALSE );
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		// Bean stays
 		asrt( R::count( 'bean' ), 1 );
 	}
@@ -236,35 +180,22 @@ class Foreignkeys extends Base implements Observer
 	public function testDependency2()
 	{
 		$can = $this->createBeanInCan( TRUE );
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		// Bean gone
 		asrt( R::count( 'bean' ), 0 );
-
 		$can = $this->createBeanInCan( FALSE );
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		// Bean stays, constraint removed
 		asrt( R::count( 'bean' ), 0 );
-
 		//need to recreate table to get rid of constraint!
 		R::nuke();
-
 		$can = $this->createBeanInCan( FALSE );
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		// Bean stays, constraint removed
 		asrt( R::count( 'bean' ), 1 );
-
 	}
 
 	/**
@@ -275,13 +206,9 @@ class Foreignkeys extends Base implements Observer
 	public function testDependency3()
 	{
 		R::nuke();
-
 		$can = $this->createCanForBean();
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		asrt( R::count( 'bean' ), 1 );
 	}
 
@@ -293,33 +220,19 @@ class Foreignkeys extends Base implements Observer
 	public function testDependency4()
 	{
 		R::nuke();
-
 		$can = $this->createBeanInCan( TRUE );
-
 		R::store( $can );
-
 		R::trash( $can );
-
 		$can = $this->createCanForBean();
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		asrt( R::count( 'bean' ), 0 );
-
 		$can = $this->createBeanInCan( TRUE );
-
 		R::store( $can );
-
 		R::trash( $can );
-
 		$can = $this->createCanForBean();
-
 		asrt( R::count( 'bean' ), 1 );
-
 		R::trash( $can );
-
 		asrt( R::count( 'bean' ), 0 );
 	}
 
@@ -332,23 +245,15 @@ class Foreignkeys extends Base implements Observer
 	public function testIssue171()
 	{
 		R::getDatabaseAdapter()->addEventListener( 'sql_exec', $this );
-
 		$account = R::dispense( 'account' );
 		$user    = R::dispense( 'user' );
 		$player  = R::dispense( 'player' );
-
 		$account->ownUser[] = $user;
-
 		R::store( $account );
-
 		asrt( strpos( implode( ',', $this->queries ), 'index_foreignkey_user_account' ) !== FALSE, TRUE );
-
 		$this->queries = array();
-
 		$account->ownPlayer[] = $player;
-
 		R::store( $account );
-
 		asrt( strpos( implode( ',', $this->queries ), 'index_foreignkey_player_accou' ) !== FALSE, TRUE );
 	}
 
@@ -361,23 +266,15 @@ class Foreignkeys extends Base implements Observer
 	public function testCreationOfForeignKeys()
 	{
 		$this->queries = array();
-
 		$account = R::dispense( 'account' );
 		$user    = R::dispense( 'user' );
 		$player  = R::dispense( 'player' );
-
 		$user->account = $account;
-
 		R::store( $user );
-
 		asrt( strpos( implode( ',', $this->queries ), 'index_foreignkey_user_account' ) !== FALSE, TRUE );
-
 		$this->queries = array();
-
 		$player->account = $account;
-
 		R::store( $player );
-
 		asrt( strpos( implode( ',', $this->queries ), 'index_foreignkey_player_accou' ) !== FALSE, TRUE );
 	}
 
@@ -392,18 +289,14 @@ class Foreignkeys extends Base implements Observer
 	{
 		$can  = R::dispense( 'can' );
 		$bean = R::dispense( 'bean' );
-
 		$can->name   = 'bakedbeans';
 		$bean->taste = 'salty';
-
 		if ($isExcl) {
 			$can->xownBean[] = $bean;
 		} else {
 			$can->ownBean[] = $bean;
 		}
-
 		R::store( $can );
-
 		return $can;
 	}
 
@@ -418,11 +311,8 @@ class Foreignkeys extends Base implements Observer
 	{
 		$can  = R::dispense( 'can' );
 		$bean = R::dispense( 'bean' );
-
 		$bean->can = $can;
-
 		R::store( $bean );
-
 		return $can;
 	}
 

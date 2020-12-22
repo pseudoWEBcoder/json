@@ -33,6 +33,26 @@ use RedBeanPHP\BeanHelper\SimpleFacadeBeanHelper as SimpleFacadeBeanHelper;
 class Fuse extends Base
 {
 	/**
+	 * Hook into the jsonSerialize function #651
+	 * Allow models to provide a jsonSerialize return.
+	 * This test uses the Coffee Helper Model to add
+	 * a description to the JSON representation of the bean.
+	 *
+	 * @return void
+	 */
+	public function testFUSEJSonSerialize()
+	{
+		if ( phpversion() < 5.4 ) return;
+		$coffee = R::dispense( 'coffee' );
+		$coffee->variant = 'Tropical';
+		$coffee->strength = 4;
+		$json = json_encode( $coffee );
+		$array = json_decode( $json, TRUE );
+		asrt( isset( $array['description'] ), TRUE );
+		asrt( $array['description'], 'Tropical.4' );
+	}
+
+	/**
 	 * Test whether we can override the getModelForBean() method
 	 * of the BeanHelper and use a custom BeanHelper to attach a model
 	 * based on type.
@@ -176,12 +196,9 @@ class Fuse extends Base
 			$model->setNote( 'injected', 'dependency' );
 			return $model;
 		} );
-
 		$bean = R::dispense( 'band' )->box();
-
 		asrt( ( $bean instanceof \Model_Band ), TRUE );
 		asrt( ( $bean->getNote('injected') ), 'dependency' );
-
 		SimpleFacadeBeanHelper::setFactoryFunction( NULL );
 	}
 
@@ -197,7 +214,6 @@ class Fuse extends Base
 		R::store( $page );
 		$testReport = \Model_PageWidget::getTestReport();
 		asrt( $testReport, 'didSave' );
-
 		$page = R::dispense( 'page' );
 		$gadget = R::dispense( 'gadget' );
 		$page->sharedGadgetList[] = $gadget;
@@ -228,9 +244,7 @@ class Fuse extends Base
 	public function testGetExtractedToolBox()
 	{
 		$helper = new SimpleFacadeBeanHelper;
-
 		list( $redbean, $database, $writer, $toolbox ) = $helper->getExtractedToolbox();
-
 		asrt( ( $redbean  instanceof OODB        ), TRUE );
 		asrt( ( $database instanceof Adapter     ), TRUE );
 		asrt( ( $writer   instanceof QueryWriter ), TRUE );

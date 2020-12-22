@@ -10,13 +10,13 @@ R::setAutoResolve(true);
 pre(['datebase'=>$df],false);
 RedBeanPHP\R::debug( true,2);
 //$queryLogger = RedBeanPHP\Logger\RedBean_Plugin_QueryLogger::getInstanceAndAttach(R::getDatabaseAdapter());
-
+var_export(['datebase'=>$df]);
 $ReceiptTable = 'receipt';
 $itemsTable = 'items';
 $commentTable = 'comment';
 $statusTable='status';
 $categoryTable='category';
-
+;
 $Receipt = R::dispense($ReceiptTable);
 $Comments = R::dispense($commentTable);
 $Status = R::dispense($statusTable);
@@ -28,6 +28,7 @@ $dirname = realpath($dir);
 $action = $_REQUEST['action'];
 if ($action == '')
     $action = 'add';
+
 switch ($action) {
     case 'add':
         echo render(['title' => 'добавление товаров', 'body' => form_add()]);
@@ -163,9 +164,42 @@ function render_select($dirname)
     return [$filtered, $options];
 
 }
+function debug($vars,$die=true){
+	func_get_args();
+	$db=debug_backtrace();
+	$reverse=array_reverse($db);$str=[];
+	foreach($reverse as $i=>$v){
+		$args=[];$Args='';
+		if(isset($v['args']))
+			foreach($v['args'] as $j=>$k)
+			$args[]=mb_substr(gettype($k)?gettype($k):'', 0,1);
+			$Args=implode(',',$args);
+			if(isset($v['line']))
+		$line=':'.$v['line'];
+		else 
+			$line='';
+	if(isset($v['function']))
+		$str[]=$v['function'].'('.$Args.')'.$line;
+		if(isset($v['class']))
+		$str[]=$v['class'].$line.'::';
+		if(isset($v['object']))
+		$str[]=$v['object'].'->';
+		
+	}
+	echo '<div style="border:1px solid green;">';
+echo '<pre>';
+	var_export($vars);
 
+	echo '</div>';
+	$return =__FILE__.'<br><code>'.implode(' &rarr; ',$str ).'</code>' ;
+	if($die)
+	die($return);
+	else echo ($return);
+	echo '</pre>';
+}
 function addItems()
 {
+	
     set_time_limit(0);
     $file = $GLOBALS['dir'] . '/' . $_REQUEST['file'] . '.json';
     if (!file_exists($file))
@@ -174,8 +208,10 @@ function addItems()
 $existscheckbox=get('notexists');
 $checkexists=$existscheckbox=='on';
     foreach ($json as $irecipt => $recipt) {
+	//$a= [$recipt['ticket']["document"]["receipt"]["kktRegId"], $recipt['ticket']["document"]["receipt"]["fiscalDocumentNumber"], $recipt['ticket']["document"]["receipt"]["fiscalDriveNumber"], $recipt['ticket']["document"]["receipt"]["totalSum"]];
+	//debug(compact(['recipt','a' ]));
 	if($checkexists)
-      {  $exists = R::find($GLOBALS['ReceiptTable'], ' `kkt_reg_id`=? AND `fiscal_document_number` =? AND fiscal_drive_number=? AND total_sum=?', [$recipt["document"]["receipt"]["kktRegId"], $recipt["document"]["receipt"]["fiscalDocumentNumber"], $recipt["document"]["receipt"]["fiscalDriveNumber"], $recipt["document"]["receipt"]["totalSum"]]);
+      {  $exists = R::find($GLOBALS['ReceiptTable'], ' `kkt_reg_id`=? AND `fiscal_document_number` =? AND fiscal_drive_number=? AND total_sum=?', [$recipt['ticket']["document"]["receipt"]["kktRegId"], $recipt['ticket']["document"]["receipt"]["fiscalDocumentNumber"], $recipt['ticket']["document"]["receipt"]["fiscalDriveNumber"], $recipt['ticket']["document"]["receipt"]["totalSum"]]);
        
 	if ($exists)
             {continue;}
@@ -184,7 +220,7 @@ $checkexists=$existscheckbox=='on';
         $RECIPT->created = time();
         $RECIPT->updated = time();
 $RECIPT->commit=null;
-        foreach ($recipt["document"]["receipt"] as $index => $Item) {
+        foreach ($recipt['ticket']["document"]["receipt"] as $index => $Item) {
             if ($index == 'items') {
                 foreach ($Item as $inemindex => $item) {
                     $ITEM = R::dispense($GLOBALS['itemsTable']);
@@ -220,6 +256,8 @@ function simple($str)
 
 function form_add()
 {
+	
+	
     if (isset($_REQUEST['add']))
 	try{
         return pre(addItems());}

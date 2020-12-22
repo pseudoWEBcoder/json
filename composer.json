@@ -1,5 +1,6 @@
 {
     "require": {
-        "gabordemooij/redbean": "^5.1"
+        "gabordemooij/redbean": "^5.1",
+        "monolog/monolog": "^2.2"
     }
 }

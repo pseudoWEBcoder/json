@@ -30,6 +30,89 @@ use RedBeanPHP\SimpleModel as SimpleModel;
 class Misc extends Base
 {
 	/**
+	 * Can we use data definition templates?
+	 *
+	 * @return void
+	 */
+	public function testDDLTemplates()
+	{
+		R::nuke();
+		R::debug( TRUE, 1 );
+		$writer = R::getWriter();
+		$writer->setDDLTemplate( 'createTable', 'joke', $writer->getDDLTemplate( 'createTable', 'joke' ) . ' /* haha */ ' );
+		$writer->setDDLTemplate( 'addColumn', 'joke', $writer->getDDLTemplate( 'addColumn', 'joke' ) . ' /* hihi */ ' );
+		$writer->setDDLTemplate( 'widenColumn', 'joke', $writer->getDDLTemplate( 'widenColumn', 'joke' ) . ' /* hoho */ ' );
+		$joke = R::dispense('joke');
+		R::store( $joke );
+		$logs = R::getDatabaseAdapter()->getDatabase()->getLogger()->grep( 'haha' );
+		asrt( count( $logs ), 1 );
+		$joke->punchline = 1;
+		R::store( $joke );
+		$logs = R::getDatabaseAdapter()->getDatabase()->getLogger()->grep( 'hihi' );
+		asrt( count( $logs ), 1 );
+		$joke->punchline = '...';
+		R::store( $joke );
+		$logs = R::getDatabaseAdapter()->getDatabase()->getLogger()->grep( 'hoho' );
+		asrt( count( $logs ), 1 );
+		R::debug( FALSE );
+	}
+
+	/**
+	 * Github issue:
+	 * Remove $NULL to directly return NULL #625
+	 * @@ -1097,8 +1097,7 @@ public function &__get( $property )
+	 *		$this->all        = FALSE;
+	 *		$this->via        = NULL;
+	 *
+	 * - $NULL = NULL;
+	 * - return $NULL;
+	 * + return NULL;
+	 *
+	 * leads to regression:
+	 * PHP Stack trace:
+	 * PHP 1. {main}() testje.php:0
+	 * PHP 2. RedBeanPHP\OODBBean->__get() testje.php:22
+	 * Notice: Only variable references should be returned by reference in rb.php on line 2529
+	 */
+	public function testReferencedGetInBeans()
+	{
+		$bean = R::dispense( 'bean' );
+		//this will trigger notice if &__get() returns NULL instead of $NULL.#625
+		$x = $bean->hello;
+		pass();
+		$x = $bean->reference;
+		pass();
+		$x = $bean->nullvalue;
+		pass();
+	}
+
+
+	public static $setupPartialBeansTestDone = 0;
+	/**
+	 * Check partial beans at setup()
+	 */
+	 public function testPartialBeansAtSetup()
+	 {
+		 if (self::$setupPartialBeansTestDone) return; /* only needs to be tested once */
+		 $currentDB = R::$currentDB;
+		 $key  = 'partialBeanBase' . time();
+		 $dsn  = 'sqlite:/tmp/test.txt';
+		 $user = '';
+		 $pass = '';
+		 $frozen = FALSE;
+		 $partialBeans = TRUE;
+		 R::addDatabase( $key, $dsn, $user, $pass, $frozen, $partialBeans);
+		 $redbean = R::getRedBean();
+		 $wasItSet = $redbean->getCurrentRepository()->usePartialBeans( FALSE );
+		 R::selectDatabase( $key );
+		 $redbean = R::getRedBean();
+		 $wasItSet = $redbean->getCurrentRepository()->usePartialBeans( FALSE );
+		 asrt( $wasItSet, TRUE );
+		 self::$setupPartialBeansTestDone = 1;
+		 R::selectDatabase( $currentDB );
+	 }
+
+	/**
 	 * Test whether we can set the 'auto clear'
 	 * option in OODB.
 	 *
@@ -114,7 +197,7 @@ class Misc extends Base
 	public function testCheckDirectly()
 	{
 		$bean = new OODBBean;
-		$bean->id = 0;
+		$bean->setProperty('id', 0);
 		$bean->setMeta( 'type', 'book' );
 		R::getRedBean()->check( $bean );
 		$bean->setMeta( 'type', '.' );
@@ -299,13 +382,28 @@ class Misc extends Base
 	public function testTransactions()
 	{
 		testpack( 'transactions' );
-		R::begin();
+		$false = R::begin();
+		asrt( $false, FALSE );
 		$bean = R::dispense( 'bean' );
 		R::store( $bean );
 		R::commit();
 		asrt( R::count( 'bean' ), 1 );
-		R::wipe( 'bean' );
-		R::freeze( 1 );
+		R::trash( $bean );
+		R::setAllowFluidTransactions( TRUE );
+		asrt( R::begin(), TRUE );
+		$bean = R::dispense( 'bean' );
+		R::store( $bean );
+		asrt( R::commit(), TRUE );
+		asrt( R::count( 'bean' ), 1 );
+		R::trash( $bean );
+		asrt( R::begin(), TRUE );
+		$bean = R::dispense( 'bean' );
+		R::store( $bean );
+		R::rollback();
+		asrt( R::count( 'bean' ), 0 );
+		R::setAllowFluidTransactions( FALSE );
+		R::wipe('bean');
+		R::freeze( TRUE );
 		R::begin();
 		$bean = R::dispense( 'bean' );
 		R::store( $bean );
@@ -527,7 +625,8 @@ class Misc extends Base
 	/**
 	 * Test if adding SimpleModles to a shared list will auto unbox them.
 	 */
-	public function testSharedListsAutoUnbox() {
+	public function testSharedListsAutoUnbox()
+	{
 		$boxedBean = R::dispense( 'boxedbean' );
 		$bean = R::dispense( 'bean' );
 		$model = new SimpleModel();
@@ -539,5 +638,16 @@ class Misc extends Base
 		} catch ( \Exception $e ) {
 			fail();
 		}
+	}
+
+	/**
+	 * Test if we can obtain a database server version string
+	 * from the Facade.
+	 */
+	public function testGetDatabaseServerVersion()
+	{
+		$version = R::getDatabaseServerVersion();
+		asrt(is_string($version), TRUE);
+		asrt(strlen($version)>0, TRUE);
 	}
 }

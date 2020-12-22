@@ -10,11 +10,13 @@ dump($allgoods);
 $dir = '/sdcard/Download/';
 //$dir = 'C:\Users\nik-msk-win10\Desktop\json';
 $dirname = realpath($dir);
+
 if (isset($_REQUEST['file'])) {
     $file = $_REQUEST['file'];
     $format = $_REQUEST['format'];
+
     if (is_dir($dir))
-        $str = $format == 'json' ? execute($dirname . '/' . $file . '.json')
+        $str = $format == 'json' ? execute_cache($dirname . '/' . $file . '.json')
             : execute2($dirname . '/' . $file . '.json');
 } else {
     $str = 'не найдено';
@@ -49,6 +51,16 @@ function dump($arr)
     var_dump($arr);
     echo '</pre>';
 }
+function execute_cache($path, $caching=true)
+{
+	$exists= file_exists($cache=$path.'cache');
+//die(var_export(compact(['path','exists'])));
+	if($caching &&$exists )
+{return file_get_contents($cache);
+}else{
+	$ok= file_put_contents($cache,$result= execute($path));
+	return $result;
+}}
 
 function execute($path)
 {
@@ -82,10 +94,13 @@ function execute2($path)
 {
     $c = file_get_contents($path);
     $arr = json_decode($c, true);
+
     uksort($arr, function ($a, $b) use ($arr) {
-        $v1 = $arr[$a]["document"]["receipt"]["dateTime"] = $arr[$a]["document"]["receipt"]["dateTime"];
-        $v2 = $arr[$b]["document"]["receipt"]["dateTime"];
+        $v1 = $arr[$a]['ticket']["document"]["receipt"]["dateTime"];// = $arr['ticket'][$a]["document"]["receipt"]["dateTime"];
+        $v2 = $arr[$b]['ticket']["document"]["receipt"]["dateTime"];
         $f = 'Y-m-d\TH:i:s';
+//dump(compact(['v1','v2','a','b', 'arr']));
+//die(__FILE__.':'.__LINE__);
         $date1 = DateTime::createFromFormat($f, $v1);
         $date2 = DateTime::createFromFormat($f, $v2);
         return $date1 && $date2 ? (int)($date2->format('U') - $date1->format('U')) : 0;
@@ -104,7 +119,7 @@ function execute2($path)
         'after' => ['name' => '', 'price' => '&#x20bd; ', 'quantity' => '', 'sum' => '&#x20bd', 'totalSum' => '&#x20bd; '],
         'actions' => ['commit' => '&#10004;']];
     foreach ($arr as $k => $v) {
-        $r = $v['document']['receipt'];
+        $r = $v['ticket']['document']['receipt'];
         $ul .= '<li>';
         foreach (['dateTime', 'totalSum', 'user', 'retailPlaceAddress'] as $i) {
             $val = ($i == 'dateTime' ? dateFormat($r['dateTime']) : get($i, $r));
@@ -130,6 +145,7 @@ function execute2($path)
         $ul .= '</li>';
 
     }
+//var_dump($ul);
     return '<ul class="receipts">' . $ul . '</ul>';
 }
 

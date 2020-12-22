@@ -74,10 +74,19 @@ class BeanCollection
 		$row = $this->cursor->getNextItem();
 		if ( $row ) {
 			$beans = $this->repository->convertToBeans( $this->type, array( $row ) );
-			$bean = array_shift( $beans );
-			return $bean;
+			return reset( $beans );
 		}
 		return NULL;
+	}
+
+	/**
+	 * Resets the collection from the start, like a fresh() on a bean.
+	 *
+	 * @return void
+	 */
+	public function reset()
+	{
+		$this->cursor->reset();
 	}
 
 	/**

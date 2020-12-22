@@ -24,7 +24,6 @@ use RedBeanPHP\OODBBean as OODBBean;
  */
 class Traverse extends Base
 {
-
 	/**
 	 * Very simple traverse case (one-level).
 	 *
@@ -220,5 +219,31 @@ class Traverse extends Base
 		} catch( RedException $e ) {
 			pass();
 		}
+	}
+
+	/**
+	 * Test whether traverse() passes the depth of the
+	 * current item in the tree along with the bean.
+	 */
+	public function testDepthCount()
+	{
+		R::nuke();
+		$page = R::dispense('page');
+		$page->num = 1;
+		$root = $page;
+		for($i = 2; $i < 10; $i++) {
+			$child = R::dispense('page');
+			$page->ownPageList[] = $child;
+			$child->num = $i;
+			$page = $child;
+		}
+		R::store($root);
+		$total = 0;
+		$page = $root->fresh();
+		$page->traverse('ownPageList', function( $child, $count ) use(&$total) {
+			asrt( $count+1, intval($child->num) );
+			$total += $count;
+		});
+		asrt( $total, 36 );
 	}
 }
